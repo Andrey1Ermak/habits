@@ -35,7 +35,6 @@ thead .prev{z-index:3}
 td.c{cursor:pointer;transition:background .12s}
 .count{font-size:11px;color:var(--muted);display:block}
 .foot{display:flex;flex-wrap:wrap;gap:8px;padding:14px 14px calc(env(safe-area-inset-bottom) + 14px)}
-.hint{color:var(--muted);font-size:12px;padding:0 14px}
 dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:14px;width:min(92vw,360px)}
 dialog input{width:100%;font-size:16px;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
 .colors{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
@@ -52,14 +51,10 @@ dialog input{width:100%;font-size:16px;padding:10px;border-radius:8px;border:1px
   <button id="next">›</button>
 </header>
 <div class="wrap" id="wrap"><table id="grid"></table></div>
-<p class="hint">Тап по ячейке: 1 — выполнено (зелёный), 2 — не выполнено (красный), 3 — очистить. Тап по названию открывает редактирование.</p>
 <div class="foot">
   <button id="add">+ Привычка</button>
-  <button id="exp">Экспорт</button>
-  <button id="imp">Импорт</button>
   <button id="syncBtn">Синхронизация</button>
   <span id="sync" style="align-self:center;color:var(--muted);font-size:13px"></span>
-  <input type="file" id="file" accept=".json,application/json,text/plain" hidden>
 </div>
 
 <dialog id="dlg">
@@ -214,25 +209,6 @@ dDel.onclick=()=>dlg.close('del');
 document.getElementById('dCancel').onclick=()=>dlg.close('cancel');
 document.getElementById('add').onclick=()=>openDlg(null);
 
-document.getElementById('exp').onclick=async()=>{
-  const name=`habits-${new Date().toISOString().slice(0,10)}.json`;
-  const blob=new Blob([JSON.stringify(S)],{type:'application/json'});
-  try{
-    const f=new File([blob],name,{type:'application/json'});
-    if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}
-  }catch(e){if(e.name==='AbortError')return}
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=name;
-  a.click();
-};
-const file=document.getElementById('file');
-document.getElementById('imp').onclick=()=>file.click();
-file.onchange=async()=>{
-  try{const d=JSON.parse(await file.files[0].text());if(d.habits&&d.done){d.nextId=d.nextId||Math.max(0,...d.habits.map(x=>x.id))+1;S=d;save();render()}}
-  catch(e){alert('Не удалось прочитать файл')}
-  file.value='';
-};
 
 document.getElementById('syncBtn').onclick=()=>{
   const u=prompt('URL веб-приложения Google Apps Script (пусто — отключить):',syncUrl);
@@ -247,14 +223,6 @@ document.getElementById('syncBtn').onclick=()=>{
 render();scrollToToday();
 pull();
 
-// без облака — раз в месяц напомнить сделать бэкап
-(function(){
-  if(syncUrl)return;
-  const m=`${now.getFullYear()}-${now.getMonth()}`;
-  let last='';try{last=localStorage.getItem('habits-backup-month')||''}catch(e){}
-  if(last&&last!==m&&S.habits.length&&confirm('Новый месяц. Сохранить бэкап данных?'))document.getElementById('exp').click();
-  try{localStorage.setItem('habits-backup-month',m)}catch(e){}
-})();
 
 // если приложение висело в фоне и наступил новый день/месяц — обновить
 document.addEventListener('visibilitychange',()=>{
