@@ -167,10 +167,9 @@ function scrollToToday(){
   // ширина закреплённых столбцов (название + итог) — они всегда видны слева
   const wr=w.getBoundingClientRect(), tr=th.getBoundingClientRect(), pr=pv.getBoundingClientRect();
   const sticky=pr.right-wr.left;               // где кончаются закреплённые столбцы
-  const visible=wr.width-sticky;               // ширина видимой области дней
   const todayInContent=tr.left-wr.left+w.scrollLeft;
-  // сегодняшний день — по центру видимой области дней (вчера слева, завтра справа)
-  w.scrollLeft=Math.max(0,todayInContent-sticky-(visible-tr.width)/2);
+  // сегодняшний день — первым сразу после столбца итога прошлого месяца
+  w.scrollLeft=Math.max(0,todayInContent-sticky);
 }
 
 document.getElementById('grid').addEventListener('click',e=>{
