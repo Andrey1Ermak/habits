@@ -59,6 +59,7 @@ dialog input{width:100%;font:16px var(--font);padding:10px;border-radius:2px;bor
 <div class="wrap" id="wrap"><table id="grid"></table></div>
 <div class="foot">
   <button id="add">+ Привычка</button>
+  <button id="syncBtn">Синхронизация</button>
   <span id="sync" style="align-self:center;color:var(--muted);font-size:13px"></span>
 </div>
 
@@ -209,6 +210,16 @@ document.getElementById('dCancel').onclick=()=>dlg.close('cancel');
 document.getElementById('add').onclick=()=>openDlg(null);
 
 
+
+document.getElementById('syncBtn').onclick=()=>{
+  const u=prompt('URL веб-приложения Google Apps Script (пусто — отключить):',syncUrl);
+  if(u===null)return;
+  syncUrl=u.trim();
+  try{syncUrl?localStorage.setItem(SYNC_KEY,syncUrl):localStorage.removeItem(SYNC_KEY)}catch(e){}
+  setStatus('');
+  // при подключении облака — облако главнее локальных данных
+  pull(true);
+};
 
 render();scrollToToday();
 pull();
