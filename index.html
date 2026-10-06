@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Привычки">
+<meta name="theme-color" content="#111418">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>Привычки</title>
+<style>
+:root{--bg:#111418;--panel:#1a1f26;--line:#2a313b;--text:#e8ecf1;--muted:#7d8896;--today:#3b82f6;--cell:34px;--ok:#22c55e;--miss:#ef4444;--name:120px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{touch-action:manipulation;margin:0;background:var(--bg);color:var(--text);font:15px -apple-system,system-ui,sans-serif;height:100%;overscroll-behavior:none}
+header{display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;gap:8px}
+header h1{font-size:18px;margin:0;flex:1;text-align:center}
+button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:15px}
+.wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 0 0 0;border-top:1px solid var(--line)}
+table{border-collapse:separate;border-spacing:0}
+th,td{height:var(--cell);min-width:var(--cell);width:var(--cell);text-align:center;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:0;user-select:none;-webkit-user-select:none}
+thead th{font-size:12px;color:var(--muted);font-weight:500;height:40px;line-height:1.1}
+thead th.we{color:#c08a8a}
+thead th.today{color:var(--today);font-weight:700}
+td.today,th.today{box-shadow:inset 0 0 0 1px var(--today)}
+.name{position:sticky;left:0;z-index:2;background:var(--bg);min-width:var(--name);width:var(--name);max-width:var(--name);text-align:left;padding:0 8px;font-size:14px;cursor:pointer}
+.name .t{display:block;width:calc(var(--name) - 17px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+thead .name{z-index:3}
+.prev{position:sticky;left:var(--name);z-index:2;background:var(--bg);min-width:52px;width:52px;font-size:12px;border-right:2px solid var(--line);padding:0 2px}
+thead .prev{z-index:3}
+.prev .pct{display:block;font-weight:600;font-size:13px}
+.prev .n{display:block;color:var(--muted);font-size:10px}
+td.c{cursor:pointer;transition:background .12s}
+.count{font-size:11px;color:var(--muted);display:block}
+.foot{display:flex;flex-wrap:wrap;gap:8px;padding:14px 14px calc(env(safe-area-inset-bottom) + 14px)}
+.hint{color:var(--muted);font-size:12px;padding:0 14px}
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:14px;width:min(92vw,360px)}
+dialog input{width:100%;font-size:16px;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+.colors{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+.colors span{width:30px;height:30px;border-radius:50%;border:2px solid transparent}
+.colors span.sel{border-color:#fff}
+.row{display:flex;gap:8px;justify-content:space-between;margin-top:12px}
+.danger{color:#ff7b7b}
+</style>
+</head>
+<body>
+<header>
+  <button id="prev">‹</button>
+  <h1 id="title"></h1>
+  <button id="next">›</button>
+</header>
+<div class="wrap" id="wrap"><table id="grid"></table></div>
+<p class="hint">Тап по ячейке: 1 — выполнено (зелёный), 2 — не выполнено (красный), 3 — очистить. Тап по названию открывает редактирование.</p>
+<div class="foot">
+  <button id="add">+ Привычка</button>
+  <button id="exp">Экспорт</button>
+  <button id="imp">Импорт</button>
+  <button id="syncBtn">Синхронизация</button>
+  <span id="sync" style="align-self:center;color:var(--muted);font-size:13px"></span>
+  <input type="file" id="file" accept=".json,application/json,text/plain" hidden>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog">
+    <input id="dName" placeholder="Название" autocomplete="off">
+    <div class="colors" id="dColors" hidden></div>
+    <div class="row">
+      <button type="button" id="dDel" class="danger">Удалить</button>
+      <span style="flex:1"></span>
+      <button type="button" id="dCancel">Отмена</button>
+      <button value="ok">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const KEY='habits-v1';
+const COLORS=['#22c55e','#3b82f6','#a855f7','#f59e0b','#ef4444','#14b8a6','#ec4899'];
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S) S={habits:[{id:1,name:'Спорт',color:COLORS[0]},{id:2,name:'Чтение',color:COLORS[1]},{id:3,name:'Сон до 23:00',color:COLORS[2]}],done:{},nextId:4};
+S.updated=S.updated||0;
+const SYNC_KEY='habits-sync-url';
+let syncUrl='';try{syncUrl=localStorage.getItem(SYNC_KEY)||''}catch(e){}
+let pushTimer=null;
+const save=()=>{
+  S.updated=Date.now();
+  try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+  if(syncUrl){clearTimeout(pushTimer);pushTimer=setTimeout(push,1500)}
+};
+function setStatus(t){const el=document.getElementById('sync');if(el)el.textContent=t}
+async function push(){
+  if(!syncUrl)return;
+  try{
+    setStatus('☁︎ …');
+    await fetch(syncUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(S)});
+    setStatus('☁︎ ✓');
+  }catch(e){setStatus('☁︎ ✗')}
+}
+async function pull(){
+  if(!syncUrl)return;
+  try{
+    setStatus('☁︎ …');
+    const r=await fetch(syncUrl);
+    const remote=await r.json();
+    if(remote&&remote.habits&&remote.done&&(remote.updated||0)>S.updated){
+      S=remote;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+      render();
+    }else if((remote.updated||0)<S.updated){await push()}
+    setStatus('☁︎ ✓');
+  }catch(e){setStatus('☁︎ ✗')}
+}
+// просим iOS/браузер не вычищать хранилище
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+
+const now=new Date();
+let Y=now.getFullYear(),M=now.getMonth();
+const pad=n=>String(n).padStart(2,'0');
+const key=(id,d)=>`${id}|${Y}-${pad(M+1)}-${pad(d)}`;
+const WD=['вс','пн','вт','ср','чт','пт','сб'];
+
+function render(){
+  const days=new Date(Y,M+1,0).getDate();
+  const isCur=Y===now.getFullYear()&&M===now.getMonth();
+  const today=now.getDate();
+  const mn=new Date(Y,M,1).toLocaleDateString('ru-RU',{month:'long'});
+  document.getElementById('title').textContent=mn[0].toUpperCase()+mn.slice(1)+' '+Y;
+  const pY=M===0?Y-1:Y, pM=M===0?11:M-1, pDays=new Date(pY,pM+1,0).getDate();
+  const pLabel=new Date(pY,pM,1).toLocaleDateString('ru-RU',{month:'short'}).replace('.','');
+  let h=`<thead><tr><th class="name"></th><th class="prev">${pLabel}<br>итог</th>`;
+  for(let d=1;d<=days;d++){
+    const wd=new Date(Y,M,d).getDay();
+    const cls=[(wd===0||wd===6)?'we':'',isCur&&d===today?'today':''].join(' ');
+    h+=`<th class="${cls}">${d}<br>${WD[wd]}</th>`;
+  }
+  h+='</tr></thead><tbody>';
+  for(const hb of S.habits){
+    let cnt=0;
+    let cells='';
+    for(let d=1;d<=days;d++){
+      const st=S.done[key(hb.id,d)]||0; if(st===1)cnt++;
+      const t=isCur&&d===today?' today':'';
+      const bg=st===1?'var(--ok)':st===2?'var(--miss)':'transparent';
+      cells+=`<td class="c${t}" data-h="${hb.id}" data-d="${d}" style="background:${bg}"></td>`;
+    }
+    let pc=0;
+    const pre=`${hb.id}|${pY}-${pad(pM+1)}-`;
+    for(const k in S.done) if(k.startsWith(pre)&&S.done[k]===1) pc++;
+    const pct=Math.round(pc/pDays*100);
+    const alpha=Math.round(pct/100*0.55*255).toString(16).padStart(2,'0');
+    const prevCell=`<td class="prev" style="background:linear-gradient(#22c55e${alpha},#22c55e${alpha}),var(--bg)"><span class="pct">${pct}%</span><span class="n">${pc}/${pDays}</span></td>`;
+    h+=`<tr><td class="name" data-edit="${hb.id}"><span class="t">${esc(hb.name)}</span><span class="count">${cnt}/${days}</span></td>${prevCell}${cells}</tr>`;
+  }
+  h+='</tbody>';
+  document.getElementById('grid').innerHTML=h;
+}
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function scrollToToday(){
+  const w=document.getElementById('wrap');
+  const isCur=Y===now.getFullYear()&&M===now.getMonth();
+  const cell=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell'));
+  w.scrollLeft=isCur?Math.max(0,(now.getDate()-4)*cell):0;
+}
+
+document.getElementById('grid').addEventListener('click',e=>{
+  const td=e.target.closest('td');
+  if(!td)return;
+  if(td.dataset.edit){openDlg(+td.dataset.edit);return}
+  if(!td.dataset.h)return;
+  const k=key(td.dataset.h,td.dataset.d);
+  const st=S.done[k]||0;
+  if(st===0)S.done[k]=1; else if(st===1)S.done[k]=2; else delete S.done[k];
+  save();
+  const sl=document.getElementById('wrap').scrollLeft;
+  render();
+  document.getElementById('wrap').scrollLeft=sl;
+  if(navigator.vibrate)navigator.vibrate(8);
+});
+
+document.getElementById('prev').onclick=()=>{M--;if(M<0){M=11;Y--}render();scrollToToday()};
+document.getElementById('next').onclick=()=>{M++;if(M>11){M=0;Y++}render();scrollToToday()};
+
+const dlg=document.getElementById('dlg'),dName=document.getElementById('dName'),dColors=document.getElementById('dColors'),dDel=document.getElementById('dDel');
+let editId=null,selColor=COLORS[0];
+function paintColors(){
+  dColors.innerHTML=COLORS.map(c=>`<span data-c="${c}" style="background:${c}" class="${c===selColor?'sel':''}"></span>`).join('');
+}
+dColors.onclick=e=>{if(e.target.dataset.c){selColor=e.target.dataset.c;paintColors()}};
+function openDlg(id){
+  editId=id;
+  const hb=S.habits.find(x=>x.id===id);
+  dName.value=hb?hb.name:'';
+  selColor=hb?hb.color:COLORS[S.habits.length%COLORS.length];
+  dDel.style.display=hb?'':'none';
+  paintColors();
+  dlg.showModal();
+}
+dlg.addEventListener('close',()=>{
+  const v=dlg.returnValue;
+  if(v==='ok'&&dName.value.trim()){
+    const hb=S.habits.find(x=>x.id===editId);
+    if(hb){hb.name=dName.value.trim();hb.color=selColor}
+    else S.habits.push({id:S.nextId++,name:dName.value.trim(),color:selColor});
+  }else if(v==='del'&&editId!=null&&confirm('Удалить привычку и все её отметки?')){
+    S.habits=S.habits.filter(x=>x.id!==editId);
+    for(const k in S.done)if(k.startsWith(editId+'|'))delete S.done[k];
+  }
+  save();render();
+});
+dDel.onclick=()=>dlg.close('del');
+document.getElementById('dCancel').onclick=()=>dlg.close('cancel');
+document.getElementById('add').onclick=()=>openDlg(null);
+
+document.getElementById('exp').onclick=async()=>{
+  const name=`habits-${new Date().toISOString().slice(0,10)}.json`;
+  const blob=new Blob([JSON.stringify(S)],{type:'application/json'});
+  try{
+    const f=new File([blob],name,{type:'application/json'});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}
+  }catch(e){if(e.name==='AbortError')return}
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=name;
+  a.click();
+};
+const file=document.getElementById('file');
+document.getElementById('imp').onclick=()=>file.click();
+file.onchange=async()=>{
+  try{const d=JSON.parse(await file.files[0].text());if(d.habits&&d.done){d.nextId=d.nextId||Math.max(0,...d.habits.map(x=>x.id))+1;S=d;save();render()}}
+  catch(e){alert('Не удалось прочитать файл')}
+  file.value='';
+};
+
+document.getElementById('syncBtn').onclick=()=>{
+  const u=prompt('URL веб-приложения Google Apps Script (пусто — отключить):',syncUrl);
+  if(u===null)return;
+  syncUrl=u.trim();
+  try{syncUrl?localStorage.setItem(SYNC_KEY,syncUrl):localStorage.removeItem(SYNC_KEY)}catch(e){}
+  setStatus(syncUrl?'':'');
+  pull();
+};
+
+render();scrollToToday();
+pull();
+
+// без облака — раз в месяц напомнить сделать бэкап
+(function(){
+  if(syncUrl)return;
+  const m=`${now.getFullYear()}-${now.getMonth()}`;
+  let last='';try{last=localStorage.getItem('habits-backup-month')||''}catch(e){}
+  if(last&&last!==m&&S.habits.length&&confirm('Новый месяц. Сохранить бэкап данных?'))document.getElementById('exp').click();
+  try{localStorage.setItem('habits-backup-month',m)}catch(e){}
+})();
+
+// если приложение висело в фоне и наступил новый день/месяц — обновить
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible')return;
+  pull();
+  const t=new Date();
+  if(t.toDateString()!==now.toDateString()){
+    const wasCur=Y===now.getFullYear()&&M===now.getMonth();
+    now.setTime(t.getTime());
+    if(wasCur){Y=t.getFullYear();M=t.getMonth()}
+    render();scrollToToday();
+  }
+});
+</script>
+</body>
+</html>
