@@ -13,49 +13,43 @@
 <title>Привычки</title>
 <style>
 :root{--bg:#fff;--panel:#fff;--line:#d5dbe3;--text:#1A1A1A;--muted:#555;--navy:#1B355E;--blue:#2E5A88;--red:#8C1C1C;--stripe:#F0F0F0;
---ok:#3A8D4F;--miss:#B22222;--cell:34px;--name:120px;
+--ok:#3A8D4F;--miss:#B22222;--cell:68px;--name:130px;
 --font:Abadi,"Abadi MT","Gill Sans","Gill Sans MT","Avenir Next",-apple-system,sans-serif}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{touch-action:manipulation;margin:0;background:var(--bg);color:var(--text);font:15px var(--font);height:100%;overscroll-behavior:none}
 header{padding:calc(env(safe-area-inset-top) + 14px) 16px 0}
-.eyebrow{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--blue);text-transform:uppercase}
-.eyebrow i{display:inline-block;width:22px;height:16px;background:var(--red);position:relative}
-.eyebrow i::after{content:"";position:absolute;left:10px;top:4px;width:2px;height:8px;background:#fff}
-.titlebar{display:flex;align-items:center;gap:10px;margin-top:6px;padding-bottom:8px;border-bottom:4px double var(--navy)}
+.titlebar{display:flex;align-items:center;gap:10px;padding-bottom:8px;border-bottom:4px double var(--navy)}
 header h1{font-size:24px;font-weight:800;letter-spacing:.01em;margin:0;flex:1;color:var(--navy);text-transform:uppercase}
 button{background:#fff;color:var(--navy);border:1.5px solid var(--navy);border-radius:2px;padding:7px 12px;font:700 13px var(--font);letter-spacing:.06em;text-transform:uppercase}
 header button{padding:4px 12px;font-size:18px}
 .wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:14px 0 0}
 table{border-collapse:separate;border-spacing:0}
 th,td{height:var(--cell);min-width:var(--cell);width:var(--cell);text-align:center;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:0;user-select:none;-webkit-user-select:none}
-thead th{font-size:11px;color:#fff;background:var(--navy);font-weight:700;height:40px;line-height:1.15;border-color:#2c4a78}
+thead th{font-size:13px;color:#fff;background:var(--navy);font-weight:700;height:50px;line-height:1.2;border-color:#2c4a78}
 thead th.we{background:var(--blue)}
 thead th.today{background:var(--red)}
 tbody tr:nth-child(even) td{background-color:var(--stripe)}
 td.today{box-shadow:inset 0 0 0 2px var(--red)}
-.name{position:sticky;left:0;z-index:2;background:var(--bg);min-width:var(--name);width:var(--name);max-width:var(--name);text-align:left;padding:0 8px 0 16px;font-size:13px;font-weight:700;cursor:pointer}
-.name .t{display:block;width:calc(var(--name) - 25px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.name{position:sticky;left:0;z-index:2;background:var(--bg);min-width:var(--name);width:var(--name);max-width:var(--name);text-align:left;padding:0 8px 0 16px;font-size:15px;font-weight:700;cursor:pointer}
+.name .t{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;width:calc(var(--name) - 25px);overflow:hidden;line-height:1.2}
 thead .name{z-index:3;background:var(--navy)}
-.prev{position:sticky;left:var(--name);z-index:2;background:var(--bg);min-width:52px;width:52px;font-size:11px;border-right:2px solid var(--navy);padding:0 2px}
+.prev{position:sticky;left:var(--name);z-index:2;background:var(--bg);min-width:68px;width:68px;font-size:12px;border-right:2px solid var(--navy);padding:0 2px}
 thead .prev{z-index:3;background:var(--navy);text-transform:uppercase;letter-spacing:.04em}
-.prev .pct{display:block;font-weight:800;font-size:13px;color:var(--navy)}
-.prev .n{display:block;color:var(--muted);font-size:10px}
+.prev .pct{display:block;font-weight:800;font-size:16px;color:var(--navy)}
+.prev .n{display:block;color:var(--muted);font-size:11px}
 td.c{cursor:pointer}
-.count{font-size:10px;color:var(--muted);font-weight:400;display:block;font-style:italic}
 .foot{display:flex;flex-wrap:wrap;gap:8px;padding:16px 16px calc(env(safe-area-inset-bottom) + 16px)}
 dialog{background:#fff;color:var(--text);border:none;border-top:4px solid var(--navy);border-radius:2px;width:min(92vw,360px);box-shadow:0 10px 30px rgba(0,0,0,.25)}
 dialog::backdrop{background:rgba(27,53,94,.35)}
+button:focus,button:focus-visible{outline:none}
+dialog input:focus{outline:none;border-color:var(--navy)}
 dialog input{width:100%;font:16px var(--font);padding:10px;border-radius:2px;border:1px solid var(--line);background:#fff;color:var(--text)}
-.colors{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
-.colors span{width:30px;height:30px;border-radius:50%;border:2px solid transparent}
-.colors span.sel{border-color:#000}
 .row{display:flex;gap:8px;justify-content:space-between;margin-top:14px}
 .danger{color:var(--miss);border-color:var(--miss)}
 </style>
 </head>
 <body>
 <header>
-  <div class="eyebrow"><i></i>Habit tracker</div>
   <div class="titlebar">
     <h1 id="title"></h1>
     <button id="prev">‹</button>
@@ -65,14 +59,12 @@ dialog input{width:100%;font:16px var(--font);padding:10px;border-radius:2px;bor
 <div class="wrap" id="wrap"><table id="grid"></table></div>
 <div class="foot">
   <button id="add">+ Привычка</button>
-  <button id="syncBtn">Синхронизация</button>
   <span id="sync" style="align-self:center;color:var(--muted);font-size:13px"></span>
 </div>
 
 <dialog id="dlg">
   <form method="dialog">
     <input id="dName" placeholder="Название" autocomplete="off">
-    <div class="colors" id="dColors" hidden></div>
     <div class="row">
       <button type="button" id="dDel" class="danger">Удалить</button>
       <span style="flex:1"></span>
@@ -158,7 +150,7 @@ function render(){
     const pct=Math.round(pc/pDays*100);
     const alpha=Math.round(pct/100*0.55*255).toString(16).padStart(2,'0');
     const prevCell=`<td class="prev" style="background:linear-gradient(#3A8D4F${alpha},#3A8D4F${alpha}),var(--bg)"><span class="pct">${pct}%</span><span class="n">${pc}/${pDays}</span></td>`;
-    h+=`<tr><td class="name" data-edit="${hb.id}"><span class="t">${esc(hb.name)}</span><span class="count">${cnt}/${days}</span></td>${prevCell}${cells}</tr>`;
+    h+=`<tr><td class="name" data-edit="${hb.id}"><span class="t">${esc(hb.name)}</span></td>${prevCell}${cells}</tr>`;
   }
   h+='</tbody>';
   document.getElementById('grid').innerHTML=h;
@@ -190,19 +182,14 @@ document.getElementById('grid').addEventListener('click',e=>{
 document.getElementById('prev').onclick=()=>{M--;if(M<0){M=11;Y--}render();scrollToToday()};
 document.getElementById('next').onclick=()=>{M++;if(M>11){M=0;Y++}render();scrollToToday()};
 
-const dlg=document.getElementById('dlg'),dName=document.getElementById('dName'),dColors=document.getElementById('dColors'),dDel=document.getElementById('dDel');
+const dlg=document.getElementById('dlg'),dName=document.getElementById('dName'),dDel=document.getElementById('dDel');
 let editId=null,selColor=COLORS[0];
-function paintColors(){
-  dColors.innerHTML=COLORS.map(c=>`<span data-c="${c}" style="background:${c}" class="${c===selColor?'sel':''}"></span>`).join('');
-}
-dColors.onclick=e=>{if(e.target.dataset.c){selColor=e.target.dataset.c;paintColors()}};
 function openDlg(id){
   editId=id;
   const hb=S.habits.find(x=>x.id===id);
   dName.value=hb?hb.name:'';
   selColor=hb?hb.color:COLORS[S.habits.length%COLORS.length];
   dDel.style.display=hb?'':'none';
-  paintColors();
   dlg.showModal();
 }
 dlg.addEventListener('close',()=>{
@@ -222,15 +209,6 @@ document.getElementById('dCancel').onclick=()=>dlg.close('cancel');
 document.getElementById('add').onclick=()=>openDlg(null);
 
 
-document.getElementById('syncBtn').onclick=()=>{
-  const u=prompt('URL веб-приложения Google Apps Script (пусто — отключить):',syncUrl);
-  if(u===null)return;
-  syncUrl=u.trim();
-  try{syncUrl?localStorage.setItem(SYNC_KEY,syncUrl):localStorage.removeItem(SYNC_KEY)}catch(e){}
-  setStatus('');
-  // при подключении облака на новом устройстве/после переустановки — облако главнее локальных данных
-  pull(true);
-};
 
 render();scrollToToday();
 pull();
