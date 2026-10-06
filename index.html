@@ -99,13 +99,13 @@ async function push(){
     setStatus('☁︎ ✓');
   }catch(e){setStatus('☁︎ ✗')}
 }
-async function pull(){
+async function pull(force){
   if(!syncUrl)return;
   try{
     setStatus('☁︎ …');
     const r=await fetch(syncUrl);
     const remote=await r.json();
-    if(remote&&remote.habits&&remote.done&&(remote.updated||0)>S.updated){
+    if(remote&&remote.habits&&remote.done&&(force||(remote.updated||0)>S.updated)){
       S=remote;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
       render();
     }else if((remote.updated||0)<S.updated){await push()}
@@ -239,8 +239,9 @@ document.getElementById('syncBtn').onclick=()=>{
   if(u===null)return;
   syncUrl=u.trim();
   try{syncUrl?localStorage.setItem(SYNC_KEY,syncUrl):localStorage.removeItem(SYNC_KEY)}catch(e){}
-  setStatus(syncUrl?'':'');
-  pull();
+  setStatus('');
+  // при подключении облака на новом устройстве/после переустановки — облако главнее локальных данных
+  pull(true);
 };
 
 render();scrollToToday();
