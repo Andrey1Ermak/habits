@@ -5,50 +5,62 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Привычки">
-<meta name="theme-color" content="#111418">
+<meta name="theme-color" content="#ffffff">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="manifest" href="manifest.json">
 <title>Привычки</title>
 <style>
-:root{--bg:#111418;--panel:#1a1f26;--line:#2a313b;--text:#e8ecf1;--muted:#7d8896;--today:#3b82f6;--cell:34px;--ok:#22c55e;--miss:#ef4444;--name:120px}
+:root{--bg:#fff;--panel:#fff;--line:#d5dbe3;--text:#1A1A1A;--muted:#555;--navy:#1B355E;--blue:#2E5A88;--red:#8C1C1C;--stripe:#F0F0F0;
+--ok:#3A8D4F;--miss:#B22222;--cell:34px;--name:120px;
+--font:Abadi,"Abadi MT","Gill Sans","Gill Sans MT","Avenir Next",-apple-system,sans-serif}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{touch-action:manipulation;margin:0;background:var(--bg);color:var(--text);font:15px -apple-system,system-ui,sans-serif;height:100%;overscroll-behavior:none}
-header{display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;gap:8px}
-header h1{font-size:18px;margin:0;flex:1;text-align:center}
-button{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:15px}
-.wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 0 0 0;border-top:1px solid var(--line)}
+html,body{touch-action:manipulation;margin:0;background:var(--bg);color:var(--text);font:15px var(--font);height:100%;overscroll-behavior:none}
+header{padding:calc(env(safe-area-inset-top) + 14px) 16px 0}
+.eyebrow{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--blue);text-transform:uppercase}
+.eyebrow i{display:inline-block;width:22px;height:16px;background:var(--red);position:relative}
+.eyebrow i::after{content:"";position:absolute;left:10px;top:4px;width:2px;height:8px;background:#fff}
+.titlebar{display:flex;align-items:center;gap:10px;margin-top:6px;padding-bottom:8px;border-bottom:4px double var(--navy)}
+header h1{font-size:24px;font-weight:800;letter-spacing:.01em;margin:0;flex:1;color:var(--navy);text-transform:uppercase}
+button{background:#fff;color:var(--navy);border:1.5px solid var(--navy);border-radius:2px;padding:7px 12px;font:700 13px var(--font);letter-spacing:.06em;text-transform:uppercase}
+header button{padding:4px 12px;font-size:18px}
+.wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:14px 0 0}
 table{border-collapse:separate;border-spacing:0}
 th,td{height:var(--cell);min-width:var(--cell);width:var(--cell);text-align:center;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:0;user-select:none;-webkit-user-select:none}
-thead th{font-size:12px;color:var(--muted);font-weight:500;height:40px;line-height:1.1}
-thead th.we{color:#c08a8a}
-thead th.today{color:var(--today);font-weight:700}
-td.today,th.today{box-shadow:inset 0 0 0 1px var(--today)}
-.name{position:sticky;left:0;z-index:2;background:var(--bg);min-width:var(--name);width:var(--name);max-width:var(--name);text-align:left;padding:0 8px;font-size:14px;cursor:pointer}
-.name .t{display:block;width:calc(var(--name) - 17px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-thead .name{z-index:3}
-.prev{position:sticky;left:var(--name);z-index:2;background:var(--bg);min-width:52px;width:52px;font-size:12px;border-right:2px solid var(--line);padding:0 2px}
-thead .prev{z-index:3}
-.prev .pct{display:block;font-weight:600;font-size:13px}
+thead th{font-size:11px;color:#fff;background:var(--navy);font-weight:700;height:40px;line-height:1.15;border-color:#2c4a78}
+thead th.we{background:var(--blue)}
+thead th.today{background:var(--red)}
+tbody tr:nth-child(even) td{background-color:var(--stripe)}
+td.today{box-shadow:inset 0 0 0 2px var(--red)}
+.name{position:sticky;left:0;z-index:2;background:var(--bg);min-width:var(--name);width:var(--name);max-width:var(--name);text-align:left;padding:0 8px 0 16px;font-size:13px;font-weight:700;cursor:pointer}
+.name .t{display:block;width:calc(var(--name) - 25px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+thead .name{z-index:3;background:var(--navy)}
+.prev{position:sticky;left:var(--name);z-index:2;background:var(--bg);min-width:52px;width:52px;font-size:11px;border-right:2px solid var(--navy);padding:0 2px}
+thead .prev{z-index:3;background:var(--navy);text-transform:uppercase;letter-spacing:.04em}
+.prev .pct{display:block;font-weight:800;font-size:13px;color:var(--navy)}
 .prev .n{display:block;color:var(--muted);font-size:10px}
-td.c{cursor:pointer;transition:background .12s}
-.count{font-size:11px;color:var(--muted);display:block}
-.foot{display:flex;flex-wrap:wrap;gap:8px;padding:14px 14px calc(env(safe-area-inset-bottom) + 14px)}
-dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:14px;width:min(92vw,360px)}
-dialog input{width:100%;font-size:16px;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+td.c{cursor:pointer}
+.count{font-size:10px;color:var(--muted);font-weight:400;display:block;font-style:italic}
+.foot{display:flex;flex-wrap:wrap;gap:8px;padding:16px 16px calc(env(safe-area-inset-bottom) + 16px)}
+dialog{background:#fff;color:var(--text);border:none;border-top:4px solid var(--navy);border-radius:2px;width:min(92vw,360px);box-shadow:0 10px 30px rgba(0,0,0,.25)}
+dialog::backdrop{background:rgba(27,53,94,.35)}
+dialog input{width:100%;font:16px var(--font);padding:10px;border-radius:2px;border:1px solid var(--line);background:#fff;color:var(--text)}
 .colors{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
 .colors span{width:30px;height:30px;border-radius:50%;border:2px solid transparent}
-.colors span.sel{border-color:#fff}
-.row{display:flex;gap:8px;justify-content:space-between;margin-top:12px}
-.danger{color:#ff7b7b}
+.colors span.sel{border-color:#000}
+.row{display:flex;gap:8px;justify-content:space-between;margin-top:14px}
+.danger{color:var(--miss);border-color:var(--miss)}
 </style>
 </head>
 <body>
 <header>
-  <button id="prev">‹</button>
-  <h1 id="title"></h1>
-  <button id="next">›</button>
+  <div class="eyebrow"><i></i>Habit tracker</div>
+  <div class="titlebar">
+    <h1 id="title"></h1>
+    <button id="prev">‹</button>
+    <button id="next">›</button>
+  </div>
 </header>
 <div class="wrap" id="wrap"><table id="grid"></table></div>
 <div class="foot">
@@ -145,7 +157,7 @@ function render(){
     for(const k in S.done) if(k.startsWith(pre)&&S.done[k]===1) pc++;
     const pct=Math.round(pc/pDays*100);
     const alpha=Math.round(pct/100*0.55*255).toString(16).padStart(2,'0');
-    const prevCell=`<td class="prev" style="background:linear-gradient(#22c55e${alpha},#22c55e${alpha}),var(--bg)"><span class="pct">${pct}%</span><span class="n">${pc}/${pDays}</span></td>`;
+    const prevCell=`<td class="prev" style="background:linear-gradient(#3A8D4F${alpha},#3A8D4F${alpha}),var(--bg)"><span class="pct">${pct}%</span><span class="n">${pc}/${pDays}</span></td>`;
     h+=`<tr><td class="name" data-edit="${hb.id}"><span class="t">${esc(hb.name)}</span><span class="count">${cnt}/${days}</span></td>${prevCell}${cells}</tr>`;
   }
   h+='</tbody>';
