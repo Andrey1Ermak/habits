@@ -13,7 +13,7 @@
 <title>Привычки</title>
 <style>
 :root{--bg:#fff;--panel:#fff;--line:#d5dbe3;--text:#1A1A1A;--muted:#555;--navy:#1B355E;--blue:#2E5A88;--red:#8C1C1C;--stripe:#F0F0F0;
---ok:#3A8D4F;--miss:#B22222;--cell:68px;--name:130px;
+--ok:#3A8D4F;--miss:#B22222;--skip:#E8B923;--cell:68px;--name:130px;
 --font:Abadi,"Abadi MT","Gill Sans","Gill Sans MT","Avenir Next",-apple-system,sans-serif}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{touch-action:manipulation;margin:0;background:var(--bg);color:var(--text);font:15px var(--font);height:100%;overscroll-behavior:none}
@@ -47,6 +47,10 @@ dialog input{width:100%;font:16px var(--font);padding:10px;border-radius:2px;bor
 .row{display:flex;gap:8px;justify-content:space-between;margin-top:14px}
 .danger{color:var(--miss);border-color:var(--miss)}
 .move button{flex:1}
+td.c .v{color:#fff;font-weight:800;font-size:17px}
+.check{display:flex;align-items:center;gap:10px;margin-top:14px;font-weight:700}
+dialog .check input{width:22px;height:22px;margin:0;flex:none;accent-color:var(--navy)}
+.ntitle{font-weight:800;color:var(--navy);margin-bottom:10px}
 button:disabled{opacity:.3}
 </style>
 </head>
@@ -68,6 +72,7 @@ button:disabled{opacity:.3}
 <dialog id="dlg">
   <form method="dialog">
     <input id="dName" placeholder="Название" autocomplete="off">
+    <label class="check"><input type="checkbox" id="dNum">Записывать число</label>
     <div class="row move" id="dMove">
       <button type="button" id="dUp">↑ Выше</button>
       <button type="button" id="dDown">↓ Ниже</button>
@@ -81,6 +86,22 @@ button:disabled{opacity:.3}
   </form>
 </dialog>
 
+<dialog id="nDlg">
+  <form id="nForm">
+    <div class="ntitle" id="nTitle"></div>
+    <input id="nVal" type="text" inputmode="decimal" placeholder="Сколько сделано" autocomplete="off">
+    <div class="row move">
+      <button type="button" id="nSkip">Не надо</button>
+      <button type="button" id="nClear">Очистить</button>
+    </div>
+    <div class="row">
+      <span style="flex:1"></span>
+      <button type="button" id="nCancel">Отмена</button>
+      <button type="submit">OK</button>
+    </div>
+  </form>
+</dialog>
+
 <script>
 const KEY='habits-v1';
 const COLORS=['#22c55e','#3b82f6','#a855f7','#f59e0b','#ef4444','#14b8a6','#ec4899'];
@@ -89,7 +110,8 @@ try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S) S={habits:[{id:1,name:'Спорт',color:COLORS[0]},{id:2,name:'Чтение',color:COLORS[1]},{id:3,name:'Сон до 23:00',color:COLORS[2]}],done:{},nextId:4};
 // t — когда менялась каждая отметка (сек), deleted — когда удалены привычки (сек)
 // orderT — когда менялся порядок привычек (сек)
-const normalize=d=>{d.habits=d.habits||[];d.done=d.done||{};d.t=d.t||{};d.deleted=d.deleted||{};d.updated=d.updated||0;d.nextId=d.nextId||1;d.orderT=d.orderT||0;return d};
+// done: 1 — сделано, 2 — не сделано, 3 — в этот день не надо (не считается); val — числа числовых привычек
+const normalize=d=>{d.habits=d.habits||[];d.done=d.done||{};d.val=d.val||{};d.t=d.t||{};d.deleted=d.deleted||{};d.updated=d.updated||0;d.nextId=d.nextId||1;d.orderT=d.orderT||0;return d};
 const nowSec=()=>Math.floor(Date.now()/1000);
 normalize(S);
 const SYNC_KEY='habits-sync-url';
@@ -105,7 +127,7 @@ function setStatus(t){const el=document.getElementById('sync');if(el)el.textCont
 // Объединение двух копий: по каждой отметке и привычке побеждает более позднее изменение
 function merge(a,b){
   const nw=b.updated>a.updated?b:a,old=nw===a?b:a;
-  const done={},t={};
+  const done={},val={},t={};
   const keys=new Set([...Object.keys(a.done),...Object.keys(b.done),...Object.keys(a.t),...Object.keys(b.t)]);
   for(const k of keys){
     const ta=a.t[k]||0,tb=b.t[k]||0;
@@ -114,6 +136,7 @@ function merge(a,b){
     // времени нет, а отметка только в одной копии — не теряем её
     else if(!ta&&(k in a.done)!==(k in b.done))src=k in a.done?a:b;
     if(k in src.done)done[k]=src.done[k];
+    if(k in src.val)val[k]=src.val[k];
     if(src.t[k])t[k]=src.t[k];
   }
   const deleted={...a.deleted};
@@ -127,8 +150,8 @@ function merge(a,b){
   const habits=[...byId.values()].filter(hb=>!(hb.id in deleted)||(hb.t||0)>deleted[hb.id]);
   // отметки удалённых привычек убираем
   const alive=new Set(habits.map(hb=>String(hb.id)));
-  for(const m of [done,t])for(const k in m){const id=k.split('|')[0];if(id in deleted&&!alive.has(id))delete m[k]}
-  return {habits,done,t,deleted,updated:Math.max(a.updated,b.updated),nextId:Math.max(a.nextId,b.nextId),orderT:Math.max(a.orderT,b.orderT),v:2};
+  for(const m of [done,val,t])for(const k in m){const id=k.split('|')[0];if(id in deleted&&!alive.has(id))delete m[k]}
+  return {habits,done,val,t,deleted,updated:Math.max(a.updated,b.updated),nextId:Math.max(a.nextId,b.nextId),orderT:Math.max(a.orderT,b.orderT),v:2};
 }
 // время старых отметок не нужно для объединения и только раздувает данные в облаке
 function pruneTimes(d){
@@ -137,7 +160,7 @@ function pruneTimes(d){
   return d;
 }
 const sorted=o=>Object.keys(o).sort().map(k=>[k,o[k]]);
-const canon=d=>JSON.stringify([d.v||0,d.orderT||0,d.habits,sorted(d.done),sorted(d.t),sorted(d.deleted)]);
+const canon=d=>JSON.stringify([d.v||0,d.orderT||0,d.habits,sorted(d.done),sorted(d.val||{}),sorted(d.t),sorted(d.deleted)]);
 
 let syncing=false,again=null;
 async function sync(force){
@@ -209,20 +232,26 @@ function render(){
   }
   h+='</tr></thead><tbody>';
   for(const hb of S.habits){
-    let cnt=0;
     let cells='';
     for(let d=1;d<=days;d++){
-      const st=S.done[key(hb.id,d)]||0; if(st===1)cnt++;
+      const k=key(hb.id,d),st=S.done[k]||0;
       const t=isCur&&d===today?' today':'';
-      const bg=st===1?'var(--ok)':st===2?'var(--miss)':'transparent';
-      cells+=`<td class="c${t}" data-h="${hb.id}" data-d="${d}" style="background:${bg}"></td>`;
+      const bg=st===1?'var(--ok)':st===2?'var(--miss)':st===3?'var(--skip)':'transparent';
+      const v=hb.num&&st===1?Number(S.val[k]):NaN;
+      cells+=`<td class="c${t}" data-h="${hb.id}" data-d="${d}" style="background:${bg}">${v>0?`<span class="v">${v}</span>`:''}</td>`;
     }
-    let pc=0;
+    // итог прошлого месяца: жёлтые дни не считаются
+    let pc=0,skip=0,sum=0;
     const pre=`${hb.id}|${pY}-${pad(pM+1)}-`;
-    for(const k in S.done) if(k.startsWith(pre)&&S.done[k]===1) pc++;
-    const pct=Math.round(pc/pDays*100);
+    for(const k in S.done) if(k.startsWith(pre)){
+      if(S.done[k]===1){pc++;sum+=Number(S.val[k])||0}
+      else if(S.done[k]===3)skip++;
+    }
+    const den=pDays-skip;
+    const pct=den?Math.round(pc/den*100):0;
     const alpha=Math.round(pct/100*0.55*255).toString(16).padStart(2,'0');
-    const prevCell=`<td class="prev" style="background:linear-gradient(#3A8D4F${alpha},#3A8D4F${alpha}),var(--bg)"><span class="pct">${pct}%</span><span class="n">${pc}/${pDays}</span></td>`;
+    const big=hb.num?Math.round(sum*10)/10:pct+'%';
+    const prevCell=`<td class="prev" style="background:linear-gradient(#3A8D4F${alpha},#3A8D4F${alpha}),var(--bg)"><span class="pct">${big}</span><span class="n">${pc}/${den}</span></td>`;
     h+=`<tr><td class="name" data-edit="${hb.id}"><span class="t">${esc(hb.name)}</span></td>${prevCell}${cells}</tr>`;
   }
   h+='</tbody>';
@@ -249,9 +278,13 @@ document.getElementById('grid').addEventListener('click',e=>{
   if(!td)return;
   if(td.dataset.edit){openDlg(+td.dataset.edit);return}
   if(!td.dataset.h)return;
+  const hb=S.habits.find(x=>String(x.id)===td.dataset.h);
+  if(hb&&hb.num){openNum(hb,+td.dataset.d);return}
   const k=key(td.dataset.h,td.dataset.d);
   const st=S.done[k]||0;
-  if(st===0)S.done[k]=1; else if(st===1)S.done[k]=2; else delete S.done[k];
+  // пусто → сделано → не сделано → не надо → пусто
+  if(st>=0&&st<3)S.done[k]=st+1; else delete S.done[k];
+  delete S.val[k];
   S.t[k]=nowSec();
   save();
   const sl=document.getElementById('wrap').scrollLeft;
@@ -263,12 +296,47 @@ document.getElementById('grid').addEventListener('click',e=>{
 document.getElementById('prev').onclick=()=>{M--;if(M<0){M=11;Y--}render();scrollToToday()};
 document.getElementById('next').onclick=()=>{M++;if(M>11){M=0;Y++}render();scrollToToday()};
 
-const dlg=document.getElementById('dlg'),dName=document.getElementById('dName'),dDel=document.getElementById('dDel');
+// Окно ввода числа
+const nDlg=document.getElementById('nDlg'),nVal=document.getElementById('nVal');
+let nKey=null;
+function openNum(hb,d){
+  nKey=key(hb.id,d);
+  document.getElementById('nTitle').textContent=hb.name+' · '+new Date(Y,M,d).toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
+  nVal.value=S.done[nKey]===1&&S.val[nKey]>0?S.val[nKey]:'';
+  nDlg.showModal();
+  nVal.focus();nVal.select();
+}
+function setCell(k,st,v){
+  if(st)S.done[k]=st; else delete S.done[k];
+  if(v)S.val[k]=v; else delete S.val[k];
+  S.t[k]=nowSec();
+  save();
+  const w=document.getElementById('wrap'),sl=w.scrollLeft;
+  render();
+  w.scrollLeft=sl;
+  if(navigator.vibrate)navigator.vibrate(8);
+  nDlg.close();
+}
+document.getElementById('nForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const raw=nVal.value.trim().replace(',','.');
+  if(raw===''){setCell(nKey,0);return}
+  const v=Math.round(Number(raw)*100)/100;
+  if(!isFinite(v)||v<0){nVal.focus();nVal.select();return}
+  // ноль — значит в этот день не сделано
+  if(v===0)setCell(nKey,2); else setCell(nKey,1,v);
+});
+document.getElementById('nSkip').onclick=()=>setCell(nKey,3);
+document.getElementById('nClear').onclick=()=>setCell(nKey,0);
+document.getElementById('nCancel').onclick=()=>nDlg.close();
+
+const dlg=document.getElementById('dlg'),dName=document.getElementById('dName'),dDel=document.getElementById('dDel'),dNum=document.getElementById('dNum');
 let editId=null,selColor=COLORS[0];
 function openDlg(id){
   editId=id;
   const hb=S.habits.find(x=>x.id===id);
   dName.value=hb?hb.name:'';
+  dNum.checked=!!(hb&&hb.num);
   selColor=hb?hb.color:COLORS[S.habits.length%COLORS.length];
   dDel.style.display=hb?'':'none';
   document.getElementById('dMove').style.display=hb?'':'none';
@@ -300,17 +368,17 @@ dlg.addEventListener('close',()=>{
   let changed=false;
   if(v==='ok'&&name){
     const hb=S.habits.find(x=>x.id===editId);
-    if(hb){if(hb.name!==name){hb.name=name;hb.t=nowSec();changed=true}}
+    if(hb){if(hb.name!==name||!!hb.num!==dNum.checked){hb.name=name;hb.num=dNum.checked;hb.t=nowSec();changed=true}}
     else{
       // id от времени: два устройства без связи не выдадут один и тот же номер
       const id=Math.max(Date.now(),S.nextId);
       S.nextId=id+1;
-      S.habits.push({id,name,color:selColor,t:nowSec()});
+      S.habits.push({id,name,color:selColor,num:dNum.checked,t:nowSec()});
       changed=true;
     }
   }else if(v==='del'&&editId!=null&&confirm('Удалить привычку и все её отметки?')){
     S.habits=S.habits.filter(x=>x.id!==editId);
-    for(const m of [S.done,S.t])for(const k in m)if(k.startsWith(editId+'|'))delete m[k];
+    for(const m of [S.done,S.val,S.t])for(const k in m)if(k.startsWith(editId+'|'))delete m[k];
     S.deleted[editId]=nowSec();
     changed=true;
   }
