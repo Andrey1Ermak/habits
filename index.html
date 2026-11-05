@@ -1,16 +1,16 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Привычки">
+<meta name="apple-mobile-web-app-title" content="Habits">
 <meta name="theme-color" content="#ffffff">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="manifest" href="manifest.json">
-<title>Привычки</title>
+<title>Habits</title>
 <style>
 :root{--bg:#fff;--panel:#fff;--line:#d5dbe3;--text:#1A1A1A;--muted:#555;--navy:#1B355E;--blue:#2E5A88;--red:#8C1C1C;--stripe:#F0F0F0;
 --ok:#3A8D4F;--miss:#B22222;--skip:#E8B923;--cell:68px;--name:130px;
@@ -64,23 +64,23 @@ button:disabled{opacity:.3}
 </header>
 <div class="wrap" id="wrap"><table id="grid"></table></div>
 <div class="foot">
-  <button id="add">+ Привычка</button>
-  <button id="syncBtn">Синхронизация</button>
+  <button id="add">+ Habit</button>
+  <button id="syncBtn">Sync</button>
   <span id="sync" style="cursor:pointer;padding:6px 4px;align-self:center;color:var(--muted);font-size:13px"></span>
 </div>
 
 <dialog id="dlg">
   <form method="dialog">
-    <input id="dName" placeholder="Название" autocomplete="off">
-    <label class="check"><input type="checkbox" id="dNum">Записывать число</label>
+    <input id="dName" placeholder="Name" autocomplete="off">
+    <label class="check"><input type="checkbox" id="dNum">Record a number</label>
     <div class="row move" id="dMove">
-      <button type="button" id="dUp">↑ Выше</button>
-      <button type="button" id="dDown">↓ Ниже</button>
+      <button type="button" id="dUp">↑ Up</button>
+      <button type="button" id="dDown">↓ Down</button>
     </div>
     <div class="row">
-      <button type="button" id="dDel" class="danger">Удалить</button>
+      <button type="button" id="dDel" class="danger">Delete</button>
       <span style="flex:1"></span>
-      <button type="button" id="dCancel">Отмена</button>
+      <button type="button" id="dCancel">Cancel</button>
       <button value="ok">OK</button>
     </div>
   </form>
@@ -89,14 +89,31 @@ button:disabled{opacity:.3}
 <dialog id="nDlg">
   <form id="nForm">
     <div class="ntitle" id="nTitle"></div>
-    <input id="nVal" type="text" inputmode="decimal" placeholder="Сколько сделано" autocomplete="off">
+    <input id="nVal" type="text" inputmode="decimal" placeholder="How much?" autocomplete="off">
     <div class="row move">
-      <button type="button" id="nSkip">Не надо</button>
-      <button type="button" id="nClear">Очистить</button>
+      <button type="button" id="nSkip">Not needed</button>
+      <button type="button" id="nClear">Clear</button>
     </div>
     <div class="row">
       <span style="flex:1"></span>
-      <button type="button" id="nCancel">Отмена</button>
+      <button type="button" id="nCancel">Cancel</button>
+      <button type="submit">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="sDlg">
+  <form id="sForm" novalidate>
+    <div class="ntitle">Google script URL</div>
+    <input id="sUrl" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" placeholder="https://script.google.com/…/exec">
+    <div id="sErr" style="color:var(--miss);font-size:13px;margin-top:8px"></div>
+    <div class="row move">
+      <button type="button" id="sPaste">Paste</button>
+      <button type="button" id="sOff" class="danger">Disconnect</button>
+    </div>
+    <div class="row">
+      <span style="flex:1"></span>
+      <button type="button" id="sCancel">Cancel</button>
       <button type="submit">OK</button>
     </div>
   </form>
@@ -107,7 +124,7 @@ const KEY='habits-v1';
 const COLORS=['#22c55e','#3b82f6','#a855f7','#f59e0b','#ef4444','#14b8a6','#ec4899'];
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
-if(!S) S={habits:[{id:1,name:'Спорт',color:COLORS[0]},{id:2,name:'Чтение',color:COLORS[1]},{id:3,name:'Сон до 23:00',color:COLORS[2]}],done:{},nextId:4};
+if(!S) S={habits:[{id:1,name:'Exercise',color:COLORS[0]},{id:2,name:'Reading',color:COLORS[1]},{id:3,name:'Sleep by 11 pm',color:COLORS[2]}],done:{},nextId:4};
 // t — когда менялась каждая отметка (сек), deleted — когда удалены привычки (сек)
 // orderT — когда менялся порядок привычек (сек)
 // done: 1 — сделано, 2 — не сделано, 3 — в этот день не надо (не считается); val — числа числовых привычек
@@ -166,17 +183,17 @@ let syncing=false,again=null;
 async function sync(force){
   if(!syncUrl)return;
   // без сети отметки остаются на устройстве и уйдут, когда сеть появится
-  if(navigator.onLine===false){lastErr='';setStatus('☁︎ нет сети');return}
+  if(navigator.onLine===false){lastErr='';setStatus('☁︎ offline');return}
   if(syncing){again=again==='force'||force?'force':'plain';return}
   syncing=true;
   try{
     setStatus('☁︎ …');
     let r;
-    try{r=await fetch(syncUrl)}catch(e){throw new Error('Загрузка: запрос не прошёл ('+(e.message||e)+'). Обычно это значит, что доступ к скрипту не «Anyone».')}
+    try{r=await fetch(syncUrl)}catch(e){throw new Error('Download: request failed ('+(e.message||e)+'). This usually means the script access is not set to "Anyone".')}
     const txt=await r.text();
     let remote;
-    try{remote=JSON.parse(txt)}catch(e){throw new Error('Загрузка: скрипт ответил не JSON (HTTP '+r.status+'): '+txt.slice(0,120))}
-    if(!remote||typeof remote!=='object')throw new Error('Загрузка: неожиданный ответ скрипта: '+txt.slice(0,120));
+    try{remote=JSON.parse(txt)}catch(e){throw new Error('Download: the script did not return JSON (HTTP '+r.status+'): '+txt.slice(0,120))}
+    if(!remote||typeof remote!=='object')throw new Error('Download: unexpected script response: '+txt.slice(0,120));
     const valid=!!(remote.habits&&remote.done);
     if(valid)normalize(remote);
     let next;
@@ -197,7 +214,7 @@ async function sync(force){
       const body=JSON.stringify(next);
       const pr=await fetch(syncUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body});
       const ptxt=await pr.text();
-      if(!ptxt.trim().startsWith('{'))throw new Error('Отправка: скрипт ответил не JSON (HTTP '+pr.status+'): '+ptxt.slice(0,120));
+      if(!ptxt.trim().startsWith('{'))throw new Error('Upload: the script did not return JSON (HTTP '+pr.status+'): '+ptxt.slice(0,120));
     }
     lastErr='';
     setStatus('☁︎ ✓');
@@ -214,17 +231,17 @@ const now=new Date();
 let Y=now.getFullYear(),M=now.getMonth();
 const pad=n=>String(n).padStart(2,'0');
 const key=(id,d)=>`${id}|${Y}-${pad(M+1)}-${pad(d)}`;
-const WD=['вс','пн','вт','ср','чт','пт','сб'];
+const WD=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 function render(){
   const days=new Date(Y,M+1,0).getDate();
   const isCur=Y===now.getFullYear()&&M===now.getMonth();
   const today=now.getDate();
-  const mn=new Date(Y,M,1).toLocaleDateString('ru-RU',{month:'long'});
+  const mn=new Date(Y,M,1).toLocaleDateString('en-US',{month:'long'});
   document.getElementById('title').textContent=mn[0].toUpperCase()+mn.slice(1)+' '+Y;
   const pY=M===0?Y-1:Y, pM=M===0?11:M-1, pDays=new Date(pY,pM+1,0).getDate();
-  const pLabel=new Date(pY,pM,1).toLocaleDateString('ru-RU',{month:'short'}).replace('.','');
-  let h=`<thead><tr><th class="name"></th><th class="prev">${pLabel}<br>итог</th>`;
+  const pLabel=new Date(pY,pM,1).toLocaleDateString('en-US',{month:'short'}).replace('.','');
+  let h=`<thead><tr><th class="name"></th><th class="prev">${pLabel}<br>total</th>`;
   for(let d=1;d<=days;d++){
     const wd=new Date(Y,M,d).getDay();
     const cls=[(wd===0||wd===6)?'we':'',isCur&&d===today?'today':''].join(' ');
@@ -301,7 +318,7 @@ const nDlg=document.getElementById('nDlg'),nVal=document.getElementById('nVal');
 let nKey=null;
 function openNum(hb,d){
   nKey=key(hb.id,d);
-  document.getElementById('nTitle').textContent=hb.name+' · '+new Date(Y,M,d).toLocaleDateString('ru-RU',{day:'numeric',month:'long'});
+  document.getElementById('nTitle').textContent=hb.name+' · '+new Date(Y,M,d).toLocaleDateString('en-US',{day:'numeric',month:'long'});
   nVal.value=S.done[nKey]===1&&S.val[nKey]>0?S.val[nKey]:'';
   nDlg.showModal();
   nVal.focus();nVal.select();
@@ -376,7 +393,7 @@ dlg.addEventListener('close',()=>{
       S.habits.push({id,name,color:selColor,num:dNum.checked,t:nowSec()});
       changed=true;
     }
-  }else if(v==='del'&&editId!=null&&confirm('Удалить привычку и все её отметки?')){
+  }else if(v==='del'&&editId!=null&&confirm('Delete this habit and all its marks?')){
     S.habits=S.habits.filter(x=>x.id!==editId);
     for(const m of [S.done,S.val,S.t])for(const k in m)if(k.startsWith(editId+'|'))delete m[k];
     S.deleted[editId]=nowSec();
@@ -391,15 +408,44 @@ document.getElementById('add').onclick=()=>openDlg(null);
 
 
 
+// Окно адреса синхронизации (системный prompt в установленных приложениях ненадёжен)
+const sDlg=document.getElementById('sDlg'),sUrl=document.getElementById('sUrl'),sErr=document.getElementById('sErr'),sPaste=document.getElementById('sPaste'),sOff=document.getElementById('sOff');
 document.getElementById('syncBtn').onclick=()=>{
-  const u=prompt('URL веб-приложения Google Apps Script (пусто — отключить):',syncUrl);
-  if(u===null)return;
-  syncUrl=u.trim();
-  try{syncUrl?localStorage.setItem(SYNC_KEY,syncUrl):localStorage.removeItem(SYNC_KEY)}catch(e){}
-  setStatus('');
-  // при подключении облака — облако главнее локальных данных
-  sync(true);
+  sUrl.value=syncUrl;
+  sErr.textContent='';
+  sOff.style.display=syncUrl?'':'none';
+  sPaste.style.display=navigator.clipboard&&navigator.clipboard.readText?'':'none';
+  sDlg.showModal();
+  sUrl.focus();
 };
+sPaste.onclick=async()=>{
+  try{sUrl.value=(await navigator.clipboard.readText()).trim();sErr.textContent=''}
+  catch(e){sErr.textContent='Could not read the clipboard. Paste the URL into the field manually.';sUrl.focus()}
+};
+sOff.onclick=()=>{
+  syncUrl='';
+  try{localStorage.removeItem(SYNC_KEY)}catch(e){}
+  lastErr='';
+  setStatus('');
+  sDlg.close();
+};
+document.getElementById('sCancel').onclick=()=>sDlg.close();
+document.getElementById('sForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const u=sUrl.value.trim();
+  if(!/^https:\/\/script\.google\.com\/\S+$/.test(u)){
+    sErr.textContent='Enter a URL like https://script.google.com/…/exec';
+    sUrl.focus();
+    return;
+  }
+  const same=u===syncUrl;
+  syncUrl=u;
+  try{localStorage.setItem(SYNC_KEY,syncUrl)}catch(e){}
+  setStatus('');
+  sDlg.close();
+  // при подключении облака — облако главнее локальных данных; тот же адрес просто синхронизируем
+  sync(!same);
+});
 
 document.getElementById('sync').onclick=()=>{if(lastErr)alert(lastErr)};
 render();scrollToToday();
