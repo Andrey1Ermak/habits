@@ -46,6 +46,8 @@ dialog input:focus{outline:none;border-color:var(--navy)}
 dialog input{width:100%;font:16px var(--font);padding:10px;border-radius:2px;border:1px solid var(--line);background:#fff;color:var(--text)}
 .row{display:flex;gap:8px;justify-content:space-between;margin-top:14px}
 .danger{color:var(--miss);border-color:var(--miss)}
+.move button{flex:1}
+button:disabled{opacity:.3}
 </style>
 </head>
 <body>
@@ -66,6 +68,10 @@ dialog input{width:100%;font:16px var(--font);padding:10px;border-radius:2px;bor
 <dialog id="dlg">
   <form method="dialog">
     <input id="dName" placeholder="Название" autocomplete="off">
+    <div class="row move" id="dMove">
+      <button type="button" id="dUp">↑ Выше</button>
+      <button type="button" id="dDown">↓ Ниже</button>
+    </div>
     <div class="row">
       <button type="button" id="dDel" class="danger">Удалить</button>
       <span style="flex:1"></span>
@@ -82,7 +88,8 @@ let S;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S) S={habits:[{id:1,name:'Спорт',color:COLORS[0]},{id:2,name:'Чтение',color:COLORS[1]},{id:3,name:'Сон до 23:00',color:COLORS[2]}],done:{},nextId:4};
 // t — когда менялась каждая отметка (сек), deleted — когда удалены привычки (сек)
-const normalize=d=>{d.habits=d.habits||[];d.done=d.done||{};d.t=d.t||{};d.deleted=d.deleted||{};d.updated=d.updated||0;d.nextId=d.nextId||1;return d};
+// orderT — когда менялся порядок привычек (сек)
+const normalize=d=>{d.habits=d.habits||[];d.done=d.done||{};d.t=d.t||{};d.deleted=d.deleted||{};d.updated=d.updated||0;d.nextId=d.nextId||1;d.orderT=d.orderT||0;return d};
 const nowSec=()=>Math.floor(Date.now()/1000);
 normalize(S);
 const SYNC_KEY='habits-sync-url';
@@ -111,17 +118,17 @@ function merge(a,b){
   }
   const deleted={...a.deleted};
   for(const id in b.deleted)deleted[id]=Math.max(deleted[id]||0,b.deleted[id]);
+  // порядок — из копии, где его меняли позже; привычки, которых там нет, идут в конец
+  const ord=a.orderT!==b.orderT?(a.orderT>b.orderT?a:b):nw,other=ord===a?b:a;
   const byId=new Map();
-  for(const hb of [...nw.habits,...old.habits]){
-    const cur=byId.get(hb.id);
-    if(!cur)byId.set(hb.id,hb);
-    else if((hb.t||0)>(cur.t||0))byId.set(hb.id,hb);
-  }
+  for(const hb of [...ord.habits,...other.habits])if(!byId.has(hb.id))byId.set(hb.id,hb);
+  // содержимое привычки — из более поздней правки (место в порядке при этом не меняется)
+  for(const hb of [...old.habits,...nw.habits])if((hb.t||0)>=(byId.get(hb.id).t||0))byId.set(hb.id,hb);
   const habits=[...byId.values()].filter(hb=>!(hb.id in deleted)||(hb.t||0)>deleted[hb.id]);
   // отметки удалённых привычек убираем
   const alive=new Set(habits.map(hb=>String(hb.id)));
   for(const m of [done,t])for(const k in m){const id=k.split('|')[0];if(id in deleted&&!alive.has(id))delete m[k]}
-  return {habits,done,t,deleted,updated:Math.max(a.updated,b.updated),nextId:Math.max(a.nextId,b.nextId),v:2};
+  return {habits,done,t,deleted,updated:Math.max(a.updated,b.updated),nextId:Math.max(a.nextId,b.nextId),orderT:Math.max(a.orderT,b.orderT),v:2};
 }
 // время старых отметок не нужно для объединения и только раздувает данные в облаке
 function pruneTimes(d){
@@ -130,7 +137,7 @@ function pruneTimes(d){
   return d;
 }
 const sorted=o=>Object.keys(o).sort().map(k=>[k,o[k]]);
-const canon=d=>JSON.stringify([d.v||0,d.habits,sorted(d.done),sorted(d.t),sorted(d.deleted)]);
+const canon=d=>JSON.stringify([d.v||0,d.orderT||0,d.habits,sorted(d.done),sorted(d.t),sorted(d.deleted)]);
 
 let syncing=false,again=null;
 async function sync(force){
@@ -264,8 +271,28 @@ function openDlg(id){
   dName.value=hb?hb.name:'';
   selColor=hb?hb.color:COLORS[S.habits.length%COLORS.length];
   dDel.style.display=hb?'':'none';
+  document.getElementById('dMove').style.display=hb?'':'none';
+  updateMove();
   dlg.showModal();
 }
+function updateMove(){
+  const i=S.habits.findIndex(x=>x.id===editId);
+  document.getElementById('dUp').disabled=i<=0;
+  document.getElementById('dDown').disabled=i<0||i===S.habits.length-1;
+}
+function moveHabit(step){
+  const i=S.habits.findIndex(x=>x.id===editId),j=i+step;
+  if(i<0||j<0||j>=S.habits.length)return;
+  [S.habits[i],S.habits[j]]=[S.habits[j],S.habits[i]];
+  S.orderT=nowSec();
+  save();
+  const w=document.getElementById('wrap'),sl=w.scrollLeft;
+  render();
+  w.scrollLeft=sl;
+  updateMove();
+}
+document.getElementById('dUp').onclick=()=>moveHabit(-1);
+document.getElementById('dDown').onclick=()=>moveHabit(1);
 dlg.addEventListener('close',()=>{
   const v=dlg.returnValue,name=dName.value.trim();
   // Esc не меняет returnValue — сбрасываем, чтобы в следующий раз не сработало прошлое действие
