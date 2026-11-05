@@ -19,7 +19,7 @@
 html,body{touch-action:manipulation;margin:0;background:var(--bg);color:var(--text);font:15px var(--font);height:100%;overscroll-behavior:none}
 header{padding:calc(env(safe-area-inset-top) + 14px) 16px 0}
 .titlebar{display:flex;align-items:center;gap:10px;padding-bottom:8px;border-bottom:4px double var(--navy)}
-header h1{font-size:24px;font-weight:800;letter-spacing:.01em;margin:0;flex:1;color:var(--navy);text-transform:uppercase}
+header h1{font-size:min(24px,5.2vw);white-space:nowrap;font-weight:800;letter-spacing:.01em;margin:0;flex:1;color:var(--navy);text-transform:uppercase}
 button{background:#fff;color:var(--navy);border:1.5px solid var(--navy);border-radius:2px;padding:7px 12px;font:700 13px var(--font);letter-spacing:.06em;text-transform:uppercase}
 header button{padding:4px 12px;font-size:18px}
 .wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:14px 0 0}
@@ -267,8 +267,8 @@ function render(){
     const den=pDays-skip;
     const pct=den?Math.round(pc/den*100):0;
     const alpha=Math.round(pct/100*0.55*255).toString(16).padStart(2,'0');
-    const big=hb.num?Math.round(sum*10)/10:pct+'%';
-    const prevCell=`<td class="prev" style="background:linear-gradient(#3A8D4F${alpha},#3A8D4F${alpha}),var(--bg)"><span class="pct">${big}</span><span class="n">${pc}/${den}</span></td>`;
+    const small=hb.num?Math.round(sum*10)/10:`${pc}/${den}`;
+    const prevCell=`<td class="prev" style="background:linear-gradient(#3A8D4F${alpha},#3A8D4F${alpha}),var(--bg)"><span class="pct">${pct}%</span><span class="n">${small}</span></td>`;
     h+=`<tr><td class="name" data-edit="${hb.id}"><span class="t">${esc(hb.name)}</span></td>${prevCell}${cells}</tr>`;
   }
   h+='</tbody>';
