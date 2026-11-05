@@ -135,6 +135,8 @@ const canon=d=>JSON.stringify([d.v||0,d.habits,sorted(d.done),sorted(d.t),sorted
 let syncing=false,again=null;
 async function sync(force){
   if(!syncUrl)return;
+  // без сети отметки остаются на устройстве и уйдут, когда сеть появится
+  if(navigator.onLine===false){lastErr='';setStatus('☁︎ нет сети');return}
   if(syncing){again=again==='force'||force?'force':'plain';return}
   syncing=true;
   try{
@@ -307,6 +309,8 @@ document.getElementById('syncBtn').onclick=()=>{
 document.getElementById('sync').onclick=()=>{if(lastErr)alert(lastErr)};
 render();scrollToToday();
 sync();
+window.addEventListener('online',()=>sync());
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 
 
 // если приложение висело в фоне и наступил новый день/месяц — обновить
