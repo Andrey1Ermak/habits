@@ -81,29 +81,62 @@ const COLORS=['#22c55e','#3b82f6','#a855f7','#f59e0b','#ef4444','#14b8a6','#ec48
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S) S={habits:[{id:1,name:'Спорт',color:COLORS[0]},{id:2,name:'Чтение',color:COLORS[1]},{id:3,name:'Сон до 23:00',color:COLORS[2]}],done:{},nextId:4};
-S.updated=S.updated||0;
+// t — когда менялась каждая отметка (сек), deleted — когда удалены привычки (сек)
+const normalize=d=>{d.habits=d.habits||[];d.done=d.done||{};d.t=d.t||{};d.deleted=d.deleted||{};d.updated=d.updated||0;d.nextId=d.nextId||1;return d};
+const nowSec=()=>Math.floor(Date.now()/1000);
+normalize(S);
 const SYNC_KEY='habits-sync-url';
 let syncUrl='';try{syncUrl=localStorage.getItem(SYNC_KEY)||''}catch(e){}
 let pushTimer=null;
 const save=()=>{
   S.updated=Date.now();
   try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
-  if(syncUrl){clearTimeout(pushTimer);pushTimer=setTimeout(()=>push().catch(()=>{}),1500)}
+  if(syncUrl){clearTimeout(pushTimer);pushTimer=setTimeout(()=>sync(),1500)}
 };
 let lastErr='';
 function setStatus(t){const el=document.getElementById('sync');if(el)el.textContent=t}
-async function push(){
-  if(!syncUrl)return;
-  try{
-    setStatus('☁︎ …');
-    const r=await fetch(syncUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(S)});
-    const txt=await r.text();
-    if(!txt.trim().startsWith('{'))throw new Error('Отправка: скрипт ответил не JSON (HTTP '+r.status+'): '+txt.slice(0,120));
-    setStatus('☁︎ ✓');
-  }catch(e){lastErr=e.message||String(e);setStatus('☁︎ ✗');throw e}
+// Объединение двух копий: по каждой отметке и привычке побеждает более позднее изменение
+function merge(a,b){
+  const nw=b.updated>a.updated?b:a,old=nw===a?b:a;
+  const done={},t={};
+  const keys=new Set([...Object.keys(a.done),...Object.keys(b.done),...Object.keys(a.t),...Object.keys(b.t)]);
+  for(const k of keys){
+    const ta=a.t[k]||0,tb=b.t[k]||0;
+    let src=nw;
+    if(ta!==tb)src=ta>tb?a:b;
+    // времени нет, а отметка только в одной копии — не теряем её
+    else if(!ta&&(k in a.done)!==(k in b.done))src=k in a.done?a:b;
+    if(k in src.done)done[k]=src.done[k];
+    if(src.t[k])t[k]=src.t[k];
+  }
+  const deleted={...a.deleted};
+  for(const id in b.deleted)deleted[id]=Math.max(deleted[id]||0,b.deleted[id]);
+  const byId=new Map();
+  for(const hb of [...nw.habits,...old.habits]){
+    const cur=byId.get(hb.id);
+    if(!cur)byId.set(hb.id,hb);
+    else if((hb.t||0)>(cur.t||0))byId.set(hb.id,hb);
+  }
+  const habits=[...byId.values()].filter(hb=>!(hb.id in deleted)||(hb.t||0)>deleted[hb.id]);
+  // отметки удалённых привычек убираем
+  const alive=new Set(habits.map(hb=>String(hb.id)));
+  for(const m of [done,t])for(const k in m){const id=k.split('|')[0];if(id in deleted&&!alive.has(id))delete m[k]}
+  return {habits,done,t,deleted,updated:Math.max(a.updated,b.updated),nextId:Math.max(a.nextId,b.nextId),v:2};
 }
-async function pull(force){
+// время старых отметок не нужно для объединения и только раздувает данные в облаке
+function pruneTimes(d){
+  const edge=nowSec()-60*86400;
+  for(const k in d.t)if(d.t[k]<edge)delete d.t[k];
+  return d;
+}
+const sorted=o=>Object.keys(o).sort().map(k=>[k,o[k]]);
+const canon=d=>JSON.stringify([d.v||0,d.habits,sorted(d.done),sorted(d.t),sorted(d.deleted)]);
+
+let syncing=false,again=null;
+async function sync(force){
   if(!syncUrl)return;
+  if(syncing){again=again==='force'||force?'force':'plain';return}
+  syncing=true;
   try{
     setStatus('☁︎ …');
     let r;
@@ -111,12 +144,36 @@ async function pull(force){
     const txt=await r.text();
     let remote;
     try{remote=JSON.parse(txt)}catch(e){throw new Error('Загрузка: скрипт ответил не JSON (HTTP '+r.status+'): '+txt.slice(0,120))}
-    if(remote&&remote.habits&&remote.done&&(force||(remote.updated||0)>S.updated)){
-      S=remote;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+    if(!remote||typeof remote!=='object')throw new Error('Загрузка: неожиданный ответ скрипта: '+txt.slice(0,120));
+    const valid=!!(remote.habits&&remote.done);
+    if(valid)normalize(remote);
+    let next;
+    if(!valid)next=S;                                   // в облаке пока пусто
+    else if(force)next=remote;                          // при подключении облако главнее
+    else if(S.v===2&&remote.v===2)next=merge(S,remote);
+    else next=(remote.updated>S.updated)?remote:S;      // копия старого формата: без времени отметок берём более новую целиком
+    next=pruneTimes(normalize(JSON.parse(JSON.stringify(next))));
+    next.v=2;
+    if(canon(next)!==canon(S)){
+      S=next;
+      try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+      const w=document.getElementById('wrap'),sl=w.scrollLeft;
       render();
-    }else if((remote.updated||0)<S.updated){await push()}
+      w.scrollLeft=sl;
+    }
+    if(!valid||canon(next)!==canon(remote)){
+      const body=JSON.stringify(next);
+      const pr=await fetch(syncUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body});
+      const ptxt=await pr.text();
+      if(!ptxt.trim().startsWith('{'))throw new Error('Отправка: скрипт ответил не JSON (HTTP '+pr.status+'): '+ptxt.slice(0,120));
+    }
+    lastErr='';
     setStatus('☁︎ ✓');
   }catch(e){lastErr=e.message||String(e);setStatus('☁︎ ✗')}
+  finally{
+    syncing=false;
+    if(again){const f=again==='force';again=null;sync(f)}
+  }
 }
 // просим iOS/браузер не вычищать хранилище
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
@@ -186,6 +243,7 @@ document.getElementById('grid').addEventListener('click',e=>{
   const k=key(td.dataset.h,td.dataset.d);
   const st=S.done[k]||0;
   if(st===0)S.done[k]=1; else if(st===1)S.done[k]=2; else delete S.done[k];
+  S.t[k]=nowSec();
   save();
   const sl=document.getElementById('wrap').scrollLeft;
   render();
@@ -213,11 +271,18 @@ dlg.addEventListener('close',()=>{
   let changed=false;
   if(v==='ok'&&name){
     const hb=S.habits.find(x=>x.id===editId);
-    if(hb){if(hb.name!==name){hb.name=name;changed=true}}
-    else{S.habits.push({id:S.nextId++,name,color:selColor});changed=true}
+    if(hb){if(hb.name!==name){hb.name=name;hb.t=nowSec();changed=true}}
+    else{
+      // id от времени: два устройства без связи не выдадут один и тот же номер
+      const id=Math.max(Date.now(),S.nextId);
+      S.nextId=id+1;
+      S.habits.push({id,name,color:selColor,t:nowSec()});
+      changed=true;
+    }
   }else if(v==='del'&&editId!=null&&confirm('Удалить привычку и все её отметки?')){
     S.habits=S.habits.filter(x=>x.id!==editId);
-    for(const k in S.done)if(k.startsWith(editId+'|'))delete S.done[k];
+    for(const m of [S.done,S.t])for(const k in m)if(k.startsWith(editId+'|'))delete m[k];
+    S.deleted[editId]=nowSec();
     changed=true;
   }
   // без изменений не трогаем S.updated, иначе устаревшие данные перезапишут облако
@@ -236,19 +301,19 @@ document.getElementById('syncBtn').onclick=()=>{
   try{syncUrl?localStorage.setItem(SYNC_KEY,syncUrl):localStorage.removeItem(SYNC_KEY)}catch(e){}
   setStatus('');
   // при подключении облака — облако главнее локальных данных
-  pull(true);
+  sync(true);
 };
 
 document.getElementById('sync').onclick=()=>{if(lastErr)alert(lastErr)};
 render();scrollToToday();
-pull();
+sync();
 
 
 // если приложение висело в фоне и наступил новый день/месяц — обновить
 let hiddenAt=0;
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState!=='visible'){hiddenAt=Date.now();return}
-  pull();
+  sync();
   const t=new Date();
   if(t.toDateString()!==now.toDateString()){
     now.setTime(t.getTime());
