@@ -207,16 +207,21 @@ function openDlg(id){
   dlg.showModal();
 }
 dlg.addEventListener('close',()=>{
-  const v=dlg.returnValue;
-  if(v==='ok'&&dName.value.trim()){
+  const v=dlg.returnValue,name=dName.value.trim();
+  // Esc не меняет returnValue — сбрасываем, чтобы в следующий раз не сработало прошлое действие
+  dlg.returnValue='';
+  let changed=false;
+  if(v==='ok'&&name){
     const hb=S.habits.find(x=>x.id===editId);
-    if(hb){hb.name=dName.value.trim();hb.color=selColor}
-    else S.habits.push({id:S.nextId++,name:dName.value.trim(),color:selColor});
+    if(hb){if(hb.name!==name){hb.name=name;changed=true}}
+    else{S.habits.push({id:S.nextId++,name,color:selColor});changed=true}
   }else if(v==='del'&&editId!=null&&confirm('Удалить привычку и все её отметки?')){
     S.habits=S.habits.filter(x=>x.id!==editId);
     for(const k in S.done)if(k.startsWith(editId+'|'))delete S.done[k];
+    changed=true;
   }
-  save();render();
+  // без изменений не трогаем S.updated, иначе устаревшие данные перезапишут облако
+  if(changed){save();render()}
 });
 dDel.onclick=()=>dlg.close('del');
 document.getElementById('dCancel').onclick=()=>dlg.close('cancel');
