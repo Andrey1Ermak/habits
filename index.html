@@ -89,7 +89,10 @@ button:disabled{opacity:.3}
 <dialog id="nDlg">
   <form id="nForm">
     <div class="ntitle" id="nTitle"></div>
-    <input id="nVal" type="text" inputmode="decimal" placeholder="How much?" autocomplete="off">
+    <div style="display:flex;gap:8px">
+      <button type="button" id="nSign" style="flex:none;font-size:18px;padding:4px 14px">±</button>
+      <input id="nVal" type="text" inputmode="decimal" placeholder="How much?" autocomplete="off">
+    </div>
     <div class="row move">
       <button type="button" id="nSkip">Not needed</button>
       <button type="button" id="nClear">Clear</button>
@@ -254,15 +257,17 @@ function render(){
       const k=key(hb.id,d),st=S.done[k]||0;
       const t=isCur&&d===today?' today':'';
       const bg=st===1?'var(--ok)':st===2?'var(--miss)':st===3?'var(--skip)':'transparent';
-      const v=hb.num&&st===1?Number(S.val[k]):NaN;
-      cells+=`<td class="c${t}" data-h="${hb.id}" data-d="${d}" style="background:${bg}">${v>0?`<span class="v">${v}</span>`:''}</td>`;
+      // отрицательное число хранится как «не сделано» (красная ячейка) со своим значением
+      const v=hb.num&&(st===1||st===2)?Number(S.val[k]):NaN;
+      cells+=`<td class="c${t}" data-h="${hb.id}" data-d="${d}" style="background:${bg}">${v&&isFinite(v)?`<span class="v">${v}</span>`:''}</td>`;
     }
     // итог прошлого месяца: жёлтые дни не считаются
     let pc=0,skip=0,sum=0;
     const pre=`${hb.id}|${pY}-${pad(pM+1)}-`;
     for(const k in S.done) if(k.startsWith(pre)){
-      if(S.done[k]===1){pc++;sum+=Number(S.val[k])||0}
+      if(S.done[k]===1)pc++;
       else if(S.done[k]===3)skip++;
+      if(S.done[k]===1||S.done[k]===2)sum+=Number(S.val[k])||0;
     }
     const den=pDays-skip;
     const pct=den?Math.round(pc/den*100):0;
@@ -319,7 +324,8 @@ let nKey=null;
 function openNum(hb,d){
   nKey=key(hb.id,d);
   document.getElementById('nTitle').textContent=hb.name+' · '+new Date(Y,M,d).toLocaleDateString('en-US',{day:'numeric',month:'long'});
-  nVal.value=S.done[nKey]===1&&S.val[nKey]>0?S.val[nKey]:'';
+  const cur=Number(S.val[nKey]);
+  nVal.value=(S.done[nKey]===1||S.done[nKey]===2)&&cur?cur:'';
   nDlg.showModal();
   nVal.focus();nVal.select();
 }
@@ -336,13 +342,19 @@ function setCell(k,st,v){
 }
 document.getElementById('nForm').addEventListener('submit',e=>{
   e.preventDefault();
-  const raw=nVal.value.trim().replace(',','.');
+  const raw=nVal.value.trim().replace(',','.').replace('−','-');
   if(raw===''){setCell(nKey,0);return}
   const v=Math.round(Number(raw)*100)/100;
-  if(!isFinite(v)||v<0){nVal.focus();nVal.select();return}
-  // ноль — значит в этот день не сделано
-  if(v===0)setCell(nKey,2); else setCell(nKey,1,v);
+  if(!isFinite(v)){nVal.focus();nVal.select();return}
+  // ноль — не сделано; отрицательное — не сделано, но с числом (красная ячейка)
+  if(v===0)setCell(nKey,2); else if(v<0)setCell(nKey,2,v); else setCell(nKey,1,v);
 });
+// на цифровой клавиатуре iPhone нет минуса — меняем знак кнопкой
+document.getElementById('nSign').onclick=()=>{
+  const t=nVal.value.trim();
+  nVal.value=t.startsWith('-')||t.startsWith('−')?t.slice(1):'-'+t;
+  nVal.focus();
+};
 document.getElementById('nSkip').onclick=()=>setCell(nKey,3);
 document.getElementById('nClear').onclick=()=>setCell(nKey,0);
 document.getElementById('nCancel').onclick=()=>nDlg.close();
